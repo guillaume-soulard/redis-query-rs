@@ -1,20 +1,61 @@
-mod parameters;
-
 extern crate core;
+mod parameters;
+mod connection;
+mod env;
+mod io;
 
-use redis::Connection;
-use crate::parameters::{parse_parameters, ExecSubCommand, RqParameters, RqSubCommand};
+use std::process::exit;
+use crate::connection::connect;
+use crate::env::{describe_env, list_env, load_env_parameters, remove_env, set_env};
+use crate::io::{writeln_to_stderr_and_exit, writeln_to_stdout};
+use crate::parameters::{load_parameters, EnvSubCommand, ExecSubCommand, RqParameters, RqSubCommand, ScanSubCommand};
+use redis::{Connection, Iter, RedisResult, ScanOptions, TypedCommands};
 
 fn main() {
-    let parameters: RqParameters = parse_parameters();
+    let parameters: RqParameters = load_parameters();
     match parameters.command {
-        RqSubCommand::Exec(cmd) => {
+        RqSubCommand::Exec(mut cmd) => {
+            load_env_parameters(&mut cmd);
             let mut con = connect(&cmd);
             exec_command(&mut con, cmd);
         }
+        RqSubCommand::Scan(mut scan) => {
+            load_env_parameters(&mut scan);
+            let mut con = connect(&scan);
+            scan_command(&mut con, scan);
+        },
+        RqSubCommand::Env(env) => {
+            match env {
+                EnvSubCommand::Set(set_env_cmd) => set_env(set_env_cmd),
+                EnvSubCommand::List(_) => list_env(),
+                EnvSubCommand::Remove(remove_env_cmd) => remove_env(remove_env_cmd),
+                EnvSubCommand::Describe(describe_env_cmd) => describe_env(describe_env_cmd),
+            }
+        }
     }
-    // execute(&mut con, vec!["SET", "foo", "bar"]);
-    // execute(&mut con, vec!["GET", "foo"]);
+}
+
+fn scan_command(connection: &mut Connection, scan: ScanSubCommand) {
+    let opts = ScanOptions::default()
+        .with_pattern(scan.pattern)
+        .with_count(scan.count);
+    let result: RedisResult<Iter<String>> = connection.scan_options(opts);
+    match result {
+        Ok(iter) => {
+            let mut counter: usize = 0;
+            for v in iter {
+                writeln_to_stdout(v.unwrap());
+                counter += 1;
+                if counter >= scan.limit {
+                    break;
+                }
+            }
+        }
+        Err(e) => {
+            writeln_to_stderr_and_exit(e.to_string());
+            exit(1);
+        }
+    }
 }
 
 fn exec_command(connection: &mut Connection, exec_command: ExecSubCommand) {
@@ -32,35 +73,7 @@ fn execute(con: &mut Connection, command: Vec<&str>) {
         cmd = cmd.arg(c)
     }
     match cmd.query::<String>(con) {
-        Ok(r) => println!("{}", r),
-        Err(e) => println!("Error: {}", e),
-    }
-}
-fn connect(command: &ExecSubCommand) -> Connection {
-    let mut user_and_password: String = String::new();
-    if command.user != "" {
-        user_and_password.push_str(command.user.as_str());
-    }
-    if command.password != "" {
-        user_and_password.push_str(":");
-        user_and_password.push_str(command.password.as_str());
-    }
-    if user_and_password != "" {
-        user_and_password.push_str("@");
-    }
-    let client = redis::Client::open(
-        format!("redis://{}{}:{}/{}",
-                user_and_password,
-                command.host,
-                command.port,
-                command.db
-        )
-    );
-    match client {
-        Ok(c) => match c.get_connection() {
-            Ok(c) => c,
-            Err(e) => panic!("Error: {}", e),
-        },
-        Err(e) => panic!("{}", e),
+        Ok(r) => writeln_to_stdout(format!("{}", r)),
+        Err(e) => writeln_to_stderr_and_exit(e.to_string()),
     }
 }
