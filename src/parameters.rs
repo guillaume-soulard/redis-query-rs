@@ -1,4 +1,6 @@
+use crate::io::{writeln_to_stderr};
 use clap::{Args, Parser, Subcommand};
+use std::process::exit;
 
 #[derive(Parser)]
 #[command(version, about, long_about = None, propagate_version = true)]
@@ -8,8 +10,13 @@ pub struct RqParameters {
 }
 
 pub fn load_parameters() -> RqParameters {
-    RqParameters::try_parse()
-        .unwrap_or_else(|error| panic!("error parsing arguments {}", error.to_string()))
+    match RqParameters::try_parse() {
+        Ok(params) => params,
+        Err(err) => {
+            writeln_to_stderr(err.to_string());
+            exit(1);
+        }
+    }
 }
 
 #[derive(Subcommand)]
@@ -159,6 +166,8 @@ pub struct ExecSubCommand {
     pub command: String,
     #[arg(short = 'e', long = "env", required = false, default_value = "")]
     pub env: String,
+    #[arg(short = 'o', long = "output", required = false, default_value = "{stdout}")]
+    pub output: String,
 }
 
 impl Connectable for ExecSubCommand {
