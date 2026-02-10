@@ -34,8 +34,7 @@ impl Environment {
     }
 }
 
-pub fn load_env_parameters(cmd: &mut dyn Connectable) {
-    let env_name = cmd.get_env();
+pub fn load_env_parameters(env_name: String, cmd: &mut dyn Connectable) {
     if env_name == "" {
         return;
     }

@@ -3,10 +3,12 @@ mod parameters;
 mod connection;
 mod env;
 mod io;
+mod migrate;
 
 use crate::connection::connect;
 use crate::env::{describe_env, list_env, load_env_parameters, remove_env, set_env};
 use crate::io::{writeln_to_stderr, writeln_to_stdout};
+use crate::migrate::migrate;
 use crate::parameters::{load_parameters, EnvSubCommand, ExecSubCommand, RqParameters, RqSubCommand, ScanSubCommand};
 use redis::{Connection, Iter, RedisResult, ScanOptions, TypedCommands};
 use std::io::{stdin, Stdin};
@@ -16,12 +18,12 @@ fn main() {
     let parameters: RqParameters = load_parameters();
     match parameters.command {
         RqSubCommand::Exec(mut cmd) => {
-            load_env_parameters(&mut cmd);
+            load_env_parameters(cmd.env.clone(), &mut cmd);
             let mut con = connect(&cmd);
             exec_command(&mut con, cmd);
         }
         RqSubCommand::Scan(mut scan) => {
-            load_env_parameters(&mut scan);
+            load_env_parameters(scan.env.clone(), &mut scan);
             let mut con = connect(&scan);
             scan_command(&mut con, scan);
         },
@@ -32,6 +34,13 @@ fn main() {
                 EnvSubCommand::Remove(remove_env_cmd) => remove_env(remove_env_cmd),
                 EnvSubCommand::Describe(describe_env_cmd) => describe_env(describe_env_cmd),
             }
+        },
+        RqSubCommand::Migrate(mut migrate_cmd) => {
+            load_env_parameters(migrate_cmd.source_env.clone(), &mut migrate_cmd);
+            let mut source_con = connect(&migrate_cmd);
+            load_env_parameters(migrate_cmd.target_env.clone(), &mut migrate_cmd);
+            let mut target_con = connect(&migrate_cmd);
+            migrate(&mut migrate_cmd, &mut source_con, &mut target_con);
         }
     }
 }
@@ -43,13 +52,8 @@ fn scan_command(connection: &mut Connection, scan: ScanSubCommand) {
     let result: RedisResult<Iter<String>> = connection.scan_options(opts);
     match result {
         Ok(iter) => {
-            let mut counter: usize = 0;
-            for v in iter {
+            for v in iter.take(scan.limit) {
                 writeln_to_stdout(v.unwrap());
-                counter += 1;
-                if counter >= scan.limit {
-                    break;
-                }
             }
         }
         Err(e) => {
