@@ -1,9 +1,17 @@
-use crate::io::{writeln_to_stderr};
+use crate::io::writeln_to_stderr;
 use clap::{Args, Parser, Subcommand};
 use std::process::exit;
 
-#[derive(Parser)]
-#[command(version, about, long_about = None, propagate_version = true)]
+pub const DEFAULT_HOST:&str = "localhost";
+pub const DEFAULT_PORT:&str = "6379";
+pub const DEFAULT_DB:&str = "0";
+pub const DEFAULT_USER:&str = "default";
+pub const DEFAULT_PASSWORD:&str = "";
+pub const DEFAULT_SENTINEL_ADDRS:&str = "localhost:26379";
+pub const DEFAULT_SENTINEL_MASTER:&str = "mymaster";
+
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
 pub struct RqParameters {
     #[command(subcommand)]
     pub command: RqSubCommand,
@@ -19,13 +27,18 @@ pub fn load_parameters() -> RqParameters {
     }
 }
 
-#[derive(Subcommand)]
+#[derive(Subcommand, Debug)]
+#[command(version, about, long_about = None)]
 pub enum RqSubCommand {
+    /// Iteratively scan a redis instance
     Scan(ScanSubCommand),
+    /// Execute a command on a redis instance
     Exec(ExecSubCommand),
     #[command(subcommand)]
+    /// Manage environment
     Env(EnvSubCommand),
-    Migrate(MigrateSubCommand),
+    /// Copy keys based on pattern from one redis instance to another
+    Copy(MigrateSubCommand),
 }
 
 pub trait Connectable {
@@ -45,31 +58,44 @@ pub trait Connectable {
     fn set_sentinel_addrs(&mut self, sentinel_addrs: String);
 }
 
-#[derive(Args)]
+#[derive(Args, Debug)]
 pub struct ScanSubCommand {
     #[arg(
+        conflicts_with_all(["sentinel_master","sentinel_addrs","env"]),
         short = 'H',
         long = "host",
         required = false,
-        default_value = "localhost"
+        default_value = DEFAULT_HOST
     )]
     pub host: String,
-    #[arg(short = 'p', long = "port", required = false, default_value = "6379")]
+    #[arg(
+        conflicts_with_all(["sentinel_master","sentinel_addrs","env"]), short = 'p', long = "port", required = false, default_value = DEFAULT_PORT)]
     pub port: u16,
-    #[arg(short = 'd', long = "db", required = false, default_value = "0")]
+    #[arg(conflicts_with_all = ["env"],short = 'd', long = "db", required = false, default_value = DEFAULT_DB)]
     pub db: u8,
     #[arg(
+        conflicts_with_all = ["env"],
         short = 'u',
         long = "user",
         required = false,
-        default_value = "default"
+        default_value = DEFAULT_USER
     )]
     pub user: String,
-    #[arg(short = 'w', long = "pass", required = false, default_value = "")]
+    #[arg(conflicts_with_all = ["env"],short = 'w', long = "password", required = false, default_value = DEFAULT_PASSWORD)]
     pub password: String,
-    #[arg(long = "sentinel-master", required = false, default_value = "mymaster")]
+    #[arg(
+        conflicts_with_all = ["host","env"],
+        long = "sentinel-master",
+        required = false,
+        default_value = DEFAULT_SENTINEL_MASTER
+    )]
     pub sentinel_master: String,
-    #[arg(long = "sentinel-addrs", required = false, default_value = "localhost:26379")]
+    #[arg(
+        conflicts_with_all = ["host","env"],
+        long = "sentinel-addrs",
+        required = false,
+        default_value = DEFAULT_SENTINEL_ADDRS
+    )]
     pub sentinel_addrs: String,
     #[arg(long = "pattern", required = true)]
     pub pattern: String,
@@ -82,7 +108,13 @@ pub struct ScanSubCommand {
         default_value = "18446744073709551615"
     )]
     pub limit: usize,
-    #[arg(short = 'e', long = "env", required = false, default_value = "")]
+    #[arg(
+        conflicts_with_all = ["host","port","db","user","password","sentinel_addrs","sentinel_master"],
+        short = 'e',
+        long = "env",
+        required = false,
+        default_value = ""
+    )]
     pub env: String,
 }
 
@@ -131,37 +163,57 @@ impl Connectable for ScanSubCommand {
     }
 }
 
-#[derive(Args)]
+#[derive(Args, Debug)]
 pub struct ExecSubCommand {
     #[arg(
+        conflicts_with_all(["sentinel_master","sentinel_addrs","env"]),
         short = 'H',
         long = "host",
         required = false,
-        default_value = "localhost"
+        default_value = DEFAULT_HOST
     )]
     pub host: String,
-    #[arg(short = 'p', long = "port", required = false, default_value = "6379")]
+    #[arg(conflicts_with_all(["sentinel_master","sentinel_addrs","env"]), short = 'p', long = "port", required = false, default_value = DEFAULT_PORT)]
     pub port: u16,
-    #[arg(short = 'd', long = "db", required = false, default_value = "0")]
+    #[arg(conflicts_with_all = ["env"],short = 'd', long = "db", required = false, default_value = DEFAULT_DB)]
     pub db: u8,
     #[arg(
+        conflicts_with_all = ["env"],
         short = 'u',
         long = "user",
         required = false,
-        default_value = "default"
+        default_value = DEFAULT_USER
     )]
     pub user: String,
-    #[arg(short = 'w', long = "pass", required = false, default_value = "")]
+    #[arg(conflicts_with_all = ["env"],short = 'w', long = "password", required = false, default_value = DEFAULT_PASSWORD)]
     pub password: String,
-    #[arg(long = "sentinel-master", required = false, default_value = "mymaster")]
+    #[arg(conflicts_with_all = ["host","env"],long = "sentinel-master", required = false, default_value = DEFAULT_SENTINEL_MASTER)]
     pub sentinel_master: String,
-    #[arg(long = "sentinel-addrs", required = false, default_value = "localhost:26379")]
+    #[arg(
+        conflicts_with_all = ["host","env"],
+        long = "sentinel-addrs",
+        required = false,
+        default_value = DEFAULT_SENTINEL_ADDRS
+    )]
     pub sentinel_addrs: String,
+    /// The command to execute. Can use spacial placeholders as parameters : {?} for current stdin value and {>} for next stdin value.
     #[arg(short = 'c', long = "command", required = true)]
     pub command: String,
-    #[arg(short = 'e', long = "env", required = false, default_value = "")]
+    #[arg(
+        conflicts_with_all = ["host","port","db","user","password","sentinel_addrs","sentinel_master"],
+        short = 'e',
+        long = "env",
+        required = false,
+        default_value = ""
+    )]
     pub env: String,
-    #[arg(short = 'o', long = "output", required = false, default_value = "{stdout}")]
+    /// The format to use to output the result. Usable placeholders {stdin} or {stdout}
+    #[arg(
+        short = 'o',
+        long = "output",
+        required = false,
+        default_value = "{stdout}"
+    )]
     pub output: String,
 }
 
@@ -223,7 +275,7 @@ impl Connectable for ExecSubCommand {
     }
 }
 
-#[derive(Subcommand)]
+#[derive(Subcommand, Debug)]
 pub enum EnvSubCommand {
     Set(SetEnvSubCommand),
     List(ListEnvSubCommand),
@@ -231,76 +283,72 @@ pub enum EnvSubCommand {
     Describe(DescribeEnvSubCommand),
 }
 
-#[derive(Args)]
+#[derive(Args, Debug)]
 pub struct SetEnvSubCommand {
     #[arg(short = 'n', long = "name", required = true)]
     pub name: String,
     #[arg(
+        conflicts_with_all(["sentinel_master","sentinel_addrs"]),
         short = 'H',
         long = "host",
         required = false,
-        default_value = "localhost"
+        default_value = ""
     )]
     pub host: String,
-    #[arg(short = 'p', long = "port", required = false, default_value = "6379")]
+    #[arg(conflicts_with_all(["sentinel_master","sentinel_addrs"]), short = 'p', long = "port", required = false, default_value = DEFAULT_PORT)]
     pub port: u16,
-    #[arg(short = 'd', long = "db", required = false, default_value = "0")]
+    #[arg(short = 'd', long = "db", required = false, default_value = DEFAULT_DB)]
     pub db: u8,
     #[arg(
         short = 'u',
         long = "user",
         required = false,
-        default_value = "default"
+        default_value = ""
     )]
     pub user: String,
-    #[arg(short = 'w', long = "pass", required = false, default_value = "")]
+    #[arg(short = 'w', long = "password", required = false, default_value = "")]
     pub password: String,
-    #[arg(long = "sentinel-master", required = false, default_value = "mymaster")]
+    #[arg(conflicts_with = "host",long = "sentinel-master", required = false, default_value = "")]
     pub sentinel_master: String,
-    #[arg(long = "sentinel-addrs", required = false, default_value = "localhost:26379")]
+    #[arg(
+        conflicts_with = "host",
+        long = "sentinel-addrs",
+        required = false,
+        default_value = ""
+    )]
     pub sentinel_addrs: String,
 }
 
-#[derive(Args)]
+#[derive(Args, Debug)]
 pub struct ListEnvSubCommand {}
 
-#[derive(Args)]
+#[derive(Args, Debug)]
 pub struct RemoveEnvSubCommand {
     #[arg(short = 'n', long = "name", required = true)]
     pub name: String,
 }
 
-#[derive(Args)]
+#[derive(Args, Debug)]
 pub struct DescribeEnvSubCommand {
     #[arg(short = 'n', long = "name", required = true)]
     pub name: String,
 }
 
-#[derive(Args)]
+#[derive(Args, Debug)]
 pub struct MigrateSubCommand {
-    #[arg(
-        short = 'H',
-        long = "host",
-        required = false,
-        default_value = "localhost"
-    )]
+    #[arg(skip)]
     pub host: String,
-    #[arg(short = 'p', long = "port", required = false, default_value = "6379")]
+    #[arg(skip)]
     pub port: u16,
-    #[arg(short = 'd', long = "db", required = false, default_value = "0")]
+    #[arg(skip)]
     pub db: u8,
-    #[arg(
-        short = 'u',
-        long = "user",
-        required = false,
-        default_value = "default"
-    )]
+    #[arg(skip)]
     pub user: String,
-    #[arg(short = 'w', long = "pass", required = false, default_value = "")]
+    #[arg(skip)]
     pub password: String,
-    #[arg(long = "sentinel-master", required = false, default_value = "mymaster")]
+    #[arg(skip)]
     pub sentinel_master: String,
-    #[arg(long = "sentinel-addrs", required = false, default_value = "localhost:26379")]
+    #[arg(skip)]
     pub sentinel_addrs: String,
     #[arg(short = 's', long = "source-env", required = true)]
     pub source_env: String,
@@ -308,9 +356,19 @@ pub struct MigrateSubCommand {
     pub target_env: String,
     #[arg(short = 'c', long = "count", required = false, default_value = "10")]
     pub count: usize,
-    #[arg(short = 'l', long = "limit", required = false, default_value = "18446744073709551615")]
+    #[arg(
+        short = 'l',
+        long = "limit",
+        required = false,
+        default_value = "18446744073709551615"
+    )]
     pub limit: usize,
-    #[arg(short = 'r', long = "replace", required = false, default_value = "true")]
+    #[arg(
+        short = 'r',
+        long = "replace",
+        required = false,
+        default_value = "true"
+    )]
     pub replace: bool,
     #[arg(long = "ttl", required = false, default_value = "-3")]
     pub ttl: i64,

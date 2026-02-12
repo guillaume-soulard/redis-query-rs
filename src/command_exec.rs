@@ -1,6 +1,6 @@
-use crate::io::{writeln_to_stderr, writeln_to_stdout};
+use crate::io::{writeln_redis_value_to_stdout, writeln_to_stderr};
 use crate::parameters::ExecSubCommand;
-use redis::Connection;
+use redis::{Connection, Value};
 use std::io::{stdin, Stdin};
 use std::process::exit;
 
@@ -28,12 +28,12 @@ fn execute(con: &mut Connection, command: Vec<&str>, output_format: String) {
     for &c in command.iter().skip(1) {
         cmd = cmd.arg(c)
     }
-    match cmd.query::<String>(con) {
-        Ok(r) => output(&String::new(), format!("{}", r), &output_format),
+    match cmd.query::<Value>(con) {
+        Ok(value) => writeln_redis_value_to_stdout(&String::new(), value, &output_format),
         Err(e) => {
             writeln_to_stderr(e.to_string());
             exit(1)
-        },
+        }
     }
 }
 
@@ -74,8 +74,8 @@ fn execute_stdin(con: &mut Connection, command: Vec<&str>, output_format: String
             }
         }
         if continue_reading {
-            match cmd.query::<String>(con) {
-                Ok(r) => output(&stdin_parameters, format!("{}", r), &output_format),
+            match cmd.query::<Value>(con) {
+                Ok(r) => writeln_redis_value_to_stdout(&stdin_parameters, r, &output_format),
                 Err(e) => {
                     writeln_to_stderr(e.to_string());
                     exit(1)
@@ -93,11 +93,4 @@ fn read_stdin(std_in: &Stdin, stdin_parameters: &mut String) -> usize {
             exit(1);
         }
     }
-}
-
-fn output(input_value: &String, output_value: String, output_format: &String) {
-    let mut output_str = output_format.clone();
-    output_str = output_str.replace("{stdout}", output_value.as_str());
-    output_str = output_str.replace("{stdin}", input_value.as_str());
-    writeln_to_stdout(output_str);
 }

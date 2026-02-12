@@ -1,5 +1,9 @@
 use crate::io::{writeln_to_stderr, writeln_to_stdout};
-use crate::parameters::{Connectable, DescribeEnvSubCommand, RemoveEnvSubCommand, SetEnvSubCommand};
+use crate::parameters::{
+    Connectable, DescribeEnvSubCommand,
+    RemoveEnvSubCommand, SetEnvSubCommand, DEFAULT_SENTINEL_ADDRS,
+    DEFAULT_SENTINEL_MASTER,
+};
 use std::env::home_dir;
 use std::fs;
 use std::fs::{create_dir, remove_file, File, OpenOptions};
@@ -42,10 +46,20 @@ pub fn load_env_parameters(env_name: String, cmd: &mut dyn Connectable) {
     cmd.set_host(env.host);
     cmd.set_db(env.db);
     cmd.set_port(env.port);
-    if env.user != "" { cmd.set_user(env.user); }
+    cmd.set_user(env.user);
     cmd.set_password(env.password);
-    cmd.set_sentinel_master(env.sentinel_master);
-    cmd.set_sentinel_addrs(env.sentinel_addrs);
+    if cmd.get_sentinel_master() == DEFAULT_SENTINEL_MASTER
+        || env.sentinel_master != ""
+        || env.sentinel_master != DEFAULT_SENTINEL_MASTER
+    {
+        cmd.set_sentinel_master(env.sentinel_master);
+    }
+    if cmd.get_sentinel_addrs() == DEFAULT_SENTINEL_ADDRS
+        || env.sentinel_addrs != ""
+        || env.sentinel_addrs != DEFAULT_SENTINEL_ADDRS
+    {
+        cmd.set_sentinel_addrs(env.sentinel_addrs);
+    }
 }
 
 fn create_if_needed_and_get_config_dir() -> PathBuf {
@@ -58,10 +72,12 @@ fn create_if_needed_and_get_config_dir() -> PathBuf {
     };
     option_directory.push(".redis-query");
     if !option_directory.exists() {
-        match create_dir(&option_directory){
-            Ok(_) => {},
+        match create_dir(&option_directory) {
+            Ok(_) => {}
             Err(e) => {
-                writeln_to_stderr(format!("Failed to create option directory : {}", e.to_string()).to_string());
+                writeln_to_stderr(
+                    format!("Failed to create option directory : {}", e.to_string()).to_string(),
+                );
                 exit(1);
             }
         };
@@ -72,25 +88,31 @@ fn create_if_needed_and_get_config_dir() -> PathBuf {
 fn load_env(env_name: String) -> Environment {
     let mut option_file = create_if_needed_and_get_config_dir();
     option_file.push(format!("{}.json", env_name));
-    let mut file = match File::open(option_file){
+    let mut file = match File::open(option_file) {
         Ok(file) => file,
         Err(e) => {
-            writeln_to_stderr(format!("Failed to open env file {} : {}", env_name, e.to_string()).to_string());
+            writeln_to_stderr(
+                format!("Failed to open env file {} : {}", env_name, e.to_string()).to_string(),
+            );
             exit(1);
         }
     };
     let mut content = String::new();
     match file.read_to_string(&mut content) {
-        Ok(_) => {},
+        Ok(_) => {}
         Err(e) => {
-            writeln_to_stderr(format!("Failed to read env file {} : {}", env_name, e.to_string()).to_string());
+            writeln_to_stderr(
+                format!("Failed to read env file {} : {}", env_name, e.to_string()).to_string(),
+            );
             exit(1);
         }
     }
-    let mut env: Environment = match serde_json::from_str(&content){
+    let mut env: Environment = match serde_json::from_str(&content) {
         Ok(env) => env,
         Err(e) => {
-            writeln_to_stderr(format!("Failed to parse env file {} : {}", env_name, e.to_string()).to_string());
+            writeln_to_stderr(
+                format!("Failed to parse env file {} : {}", env_name, e.to_string()).to_string(),
+            );
             exit(1);
         }
     };
@@ -102,15 +124,20 @@ pub fn set_env(set_env_command: SetEnvSubCommand) {
     let mut option_file = create_if_needed_and_get_config_dir();
     let env_name = set_env_command.name.clone();
     option_file.push(format!("{}.json", env_name));
-    if !option_file.exists() {
-        match File::create(&option_file) {
-            Ok(_) => {},
-            Err(e) => {
-                writeln_to_stderr(format!("Failed to create env file : {}", e.to_string()).to_string());
-                exit(1);
-            }
-        };
+    match remove_file(&option_file) {
+        Ok(_) => {}
+        Err(e) => {
+            writeln_to_stderr(format!("Failed to remove env file : {}", e.to_string()).to_string());
+            exit(1);
+        }
     }
+    match File::create(&option_file) {
+        Ok(_) => {}
+        Err(e) => {
+            writeln_to_stderr(format!("Failed to create env file : {}", e.to_string()).to_string());
+            exit(1);
+        }
+    };
     let env = Environment {
         name: env_name.clone(),
         host: set_env_command.host,
@@ -124,21 +151,28 @@ pub fn set_env(set_env_command: SetEnvSubCommand) {
     let json = match serde_json::to_string_pretty(&env) {
         Ok(json) => json,
         Err(e) => {
-            writeln_to_stderr(format!("Failed to serialize env file {} : {}", env_name, e.to_string()).to_string());
+            writeln_to_stderr(
+                format!(
+                    "Failed to serialize env file {} : {}",
+                    env_name,
+                    e.to_string()
+                )
+                .to_string(),
+            );
             exit(1);
-        },
+        }
     };
-    let mut file = match OpenOptions::new()
-        .write(true)
-        .open(option_file) {
-            Ok(file) => file,
-            Err(e) => {
-                writeln_to_stderr(format!("Failed to open env file {} : {}", env_name, e.to_string()).to_string());
-                exit(1);
-            }
-        };
+    let mut file = match OpenOptions::new().write(true).open(option_file) {
+        Ok(file) => file,
+        Err(e) => {
+            writeln_to_stderr(
+                format!("Failed to open env file {} : {}", env_name, e.to_string()).to_string(),
+            );
+            exit(1);
+        }
+    };
     match file.write_all(json.as_bytes()) {
-        Ok(_) => {},
+        Ok(_) => {}
         Err(e) => {
             writeln_to_stderr(format!("Failed to write env file : {}", e.to_string()).to_string());
             exit(1);
@@ -151,9 +185,11 @@ pub fn remove_env(remove_env_sub_command: RemoveEnvSubCommand) {
     option_file.push(format!("{}.json", remove_env_sub_command.name));
     if option_file.exists() {
         match remove_file(option_file) {
-            Ok(_) => {},
+            Ok(_) => {}
             Err(e) => {
-                writeln_to_stderr(format!("Failed to remove env file : {}", e.to_string()).to_string());
+                writeln_to_stderr(
+                    format!("Failed to remove env file : {}", e.to_string()).to_string(),
+                );
                 exit(1);
             }
         };
@@ -167,10 +203,13 @@ pub fn list_env() {
         Err(e) => {
             writeln_to_stderr(format!("Failed to read dir : {}", e.to_string()).to_string());
             exit(1);
-        },
+        }
     };
     for path in paths {
-        writeln_to_stdout(format!("{}", path.unwrap().path().file_stem().unwrap().display()));
+        writeln_to_stdout(format!(
+            "{}",
+            path.unwrap().path().file_stem().unwrap().display()
+        ));
     }
 }
 
@@ -178,7 +217,10 @@ pub fn describe_env(env_describe_command: DescribeEnvSubCommand) {
     let mut option_file = create_if_needed_and_get_config_dir();
     option_file.push(format!("{}.json", env_describe_command.name));
     if !option_file.exists() {
-        writeln_to_stdout(format!("environment '{}' not found", env_describe_command.name));
+        writeln_to_stdout(format!(
+            "environment '{}' not found",
+            env_describe_command.name
+        ));
         return;
     }
     let env = load_env(env_describe_command.name);

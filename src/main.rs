@@ -2,13 +2,13 @@ extern crate core;
 mod parameters;
 mod connection;
 mod io;
-mod command_migrate;
+mod command_copy;
 mod command_scan;
 mod command_exec;
 mod command_env;
 
 use crate::command_exec::exec_command;
-use crate::command_migrate::migrate;
+use crate::command_copy::migrate;
 use crate::command_scan::scan_command;
 use crate::connection::connect;
 use crate::command_env::{describe_env, list_env, load_env_parameters, remove_env, set_env};
@@ -35,7 +35,7 @@ fn main() {
                 EnvSubCommand::Describe(describe_env_cmd) => describe_env(describe_env_cmd),
             }
         },
-        RqSubCommand::Migrate(mut migrate_cmd) => {
+        RqSubCommand::Copy(mut migrate_cmd) => {
             load_env_parameters(migrate_cmd.source_env.clone(), &mut migrate_cmd);
             let mut source_con = connect(&migrate_cmd);
             load_env_parameters(migrate_cmd.target_env.clone(), &mut migrate_cmd);

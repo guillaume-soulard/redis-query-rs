@@ -84,7 +84,11 @@ fn restore_key_on_target(
     target_con: &mut Connection,
 ) {
     let restore_command = &mut redis::cmd("RESTORE");
-    restore_command.arg(key.clone()).arg(ttl).arg(dumped_value);
+    let final_ttl = if ttl < 0 { 0 } else { ttl };
+    restore_command
+        .arg(key.clone())
+        .arg(final_ttl)
+        .arg(dumped_value);
     if migrate_sub_command.replace {
         restore_command.arg("REPLACE");
     }
@@ -92,8 +96,9 @@ fn restore_key_on_target(
         Ok(_) => {}
         Err(err) => {
             writeln_to_stderr(format!(
-                "Error while restoring key {} : {}",
+                "Error while restoring key {} with ttl {} : {}",
                 key,
+                final_ttl,
                 err.to_string()
             ));
             exit(1);
