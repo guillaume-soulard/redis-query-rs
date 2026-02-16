@@ -1,7 +1,8 @@
-use crate::io::{writeln_redis_value_to_stdout, writeln_to_stderr};
+use crate::io::writeln_to_stderr;
 use crate::parameters::ExecSubCommand;
-use redis::{Connection, Value};
-use std::io::{stdin, Stdin};
+use crate::pipeline_executor;
+use redis::Connection;
+use std::io::{Stdin, stdin};
 use std::process::exit;
 
 const FIX_ARGUMENT_PLACE_HOLDER: &'static str = "{?}";
@@ -9,44 +10,50 @@ const ITERATOR_ARGUMENT_PLACE_HOLDER: &'static str = "{>}";
 
 pub fn exec_command(connection: &mut Connection, exec_command: ExecSubCommand) {
     let commands = exec_command.command.split(' ').collect::<Vec<&str>>();
-    let has_std_in_parameters = commands
-        .iter()
-        .any(|c| c.contains(FIX_ARGUMENT_PLACE_HOLDER) || c.contains(ITERATOR_ARGUMENT_PLACE_HOLDER));
+    let has_std_in_parameters = commands.iter().any(|c| {
+        c.contains(FIX_ARGUMENT_PLACE_HOLDER) || c.contains(ITERATOR_ARGUMENT_PLACE_HOLDER)
+    });
     if has_std_in_parameters {
-        execute_stdin(connection, commands, exec_command.output);
+        execute_stdin(connection, commands, &exec_command);
     } else {
-        execute(connection, commands, exec_command.output);
+        execute(connection, commands, &exec_command);
     }
 }
 
-fn execute(con: &mut Connection, command: Vec<&str>, output_format: String) {
+fn execute(con: &mut Connection, command: Vec<&str>, exec_sub_command: &ExecSubCommand) {
     if command.len() == 0 {
         return;
     }
-    let name = command[0];
-    let mut cmd = &mut redis::cmd(name);
+    let name = command[0].to_string();
+    let mut cmd = Vec::new();
+    cmd.push(name);
     for &c in command.iter().skip(1) {
-        cmd = cmd.arg(c)
+        cmd.push(c.to_string())
     }
-    match cmd.query::<Value>(con) {
-        Ok(value) => writeln_redis_value_to_stdout(&String::new(), value, &output_format),
-        Err(e) => {
-            writeln_to_stderr(e.to_string());
-            exit(1)
-        }
-    }
+    let mut pipeline_executor = pipeline_executor::PipelineExecutor::new(
+        exec_sub_command.pipeline,
+        con,
+        exec_sub_command.output.clone(),
+    );
+    pipeline_executor.execute(String::new(), cmd);
+    pipeline_executor.flush();
 }
 
-fn execute_stdin(con: &mut Connection, command: Vec<&str>, output_format: String) {
+fn execute_stdin(con: &mut Connection, command: Vec<&str>, exec_sub_command: &ExecSubCommand) {
     if command.len() == 0 {
         return;
     }
-    let name = command[0];
     let std_in = stdin();
     let mut continue_reading = true;
     let mut stdin_parameters: String = String::new();
+    let mut pipeline_executor = pipeline_executor::PipelineExecutor::new(
+        exec_sub_command.pipeline,
+        con,
+        exec_sub_command.output.clone(),
+    );
     while continue_reading {
-        let mut cmd = &mut redis::cmd(name);
+        let mut cmd = Vec::new();
+        cmd.push(command[0].to_string());
         let mut parameter_fetched = false;
         stdin_parameters.clear();
         for &c in command.iter().skip(1) {
@@ -60,7 +67,7 @@ fn execute_stdin(con: &mut Connection, command: Vec<&str>, output_format: String
                     }
                     parameter_fetched = true;
                 }
-                cmd = cmd.arg(stdin_parameters.as_str());
+                cmd.push(stdin_parameters.clone());
             } else if c.contains(ITERATOR_ARGUMENT_PLACE_HOLDER) {
                 stdin_parameters.clear();
                 let i = read_stdin(&std_in, &mut stdin_parameters);
@@ -68,28 +75,25 @@ fn execute_stdin(con: &mut Connection, command: Vec<&str>, output_format: String
                 if i == 0 {
                     continue_reading = false;
                 }
-                cmd = cmd.arg(stdin_parameters.as_str());
+                cmd.push(stdin_parameters.clone());
             } else {
-                cmd = cmd.arg(c);
+                cmd.push(c.to_string());
             }
         }
         if continue_reading {
-            match cmd.query::<Value>(con) {
-                Ok(r) => writeln_redis_value_to_stdout(&stdin_parameters, r, &output_format),
-                Err(e) => {
-                    writeln_to_stderr(e.to_string());
-                    exit(1)
-                }
-            }
+            pipeline_executor.execute(stdin_parameters.clone(), cmd);
         }
     }
+    pipeline_executor.flush();
 }
 
 fn read_stdin(std_in: &Stdin, stdin_parameters: &mut String) -> usize {
     match std_in.read_line(stdin_parameters) {
         Ok(i) => i,
         Err(e) => {
-            writeln_to_stderr(format!("Failed to read next stdin line : {}", e.to_string()).to_string());
+            writeln_to_stderr(
+                format!("Failed to read next stdin line : {}", e.to_string()).to_string(),
+            );
             exit(1);
         }
     }

@@ -215,6 +215,9 @@ pub struct ExecSubCommand {
         default_value = "{stdout}"
     )]
     pub output: String,
+    /// The number of commands to execute in one redis pipeline.
+    #[arg(short = 'P', long = "pipeline", required = false, default_value = "1")]
+    pub pipeline: usize,
 }
 
 impl Connectable for ExecSubCommand {

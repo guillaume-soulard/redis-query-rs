@@ -6,6 +6,7 @@ mod command_copy;
 mod command_scan;
 mod command_exec;
 mod command_env;
+mod pipeline_executor;
 
 use crate::command_exec::exec_command;
 use crate::command_copy::migrate;
