@@ -1,7 +1,68 @@
 use redis::Value;
 use std::io::{stderr, stdout, Write};
 
-pub fn writeln_redis_value_to_stdout(input_value: &String, value: Value, output_format: &String)  {
+const DEFAULT_OUTPUT_FORMAT: &str = "{stdout}";
+const DEFAULT_STRING_OUTPUT_FORMAT: &str = "\"{stdout}\"";
+const DEFAULT_ERROR_OUTPUT_FORMAT: &str = "(error) ERR \"{stdout}\"";
+const DEFAULT_INPUT_VALUE: &str = "";
+
+
+pub fn writeln_redis_value_to_stdout_for_cli(value: Value) {
+    match value {
+        Value::Nil => writeln_to_stderr("(nil)".to_string()),
+        Value::Int(i) => output(&DEFAULT_INPUT_VALUE.to_string(), format!("(integer) {}", i), &DEFAULT_OUTPUT_FORMAT.to_string()),
+        Value::BulkString(s) => output(&DEFAULT_INPUT_VALUE.to_string(), String::from_utf8(s).unwrap(), &DEFAULT_STRING_OUTPUT_FORMAT.to_string()),
+        Value::Array(a) => {
+            for i in 0..a.len() {
+                writeln_redis_value_to_stdout(&DEFAULT_INPUT_VALUE.to_string(), a[i].clone(), &String::from(format!("{}) {{stdin}}", i)));
+            }
+        }
+        Value::SimpleString(s) => output(&DEFAULT_INPUT_VALUE.to_string(), s, &DEFAULT_STRING_OUTPUT_FORMAT.to_string()),
+        Value::Okay => output(&DEFAULT_INPUT_VALUE.to_string(), "\"OK\"".to_string(), &DEFAULT_OUTPUT_FORMAT.to_string()),
+        Value::Map(m) => {
+            for i in 0..m.len() {
+                let value = m.get(i).unwrap().clone();
+                let format_key = &String::from(format!("{}) 1) {{stdin}}", i));
+                let format_value = &String::from(format!(" 2) {{stdin}}"));
+                writeln_redis_value_to_stdout(&DEFAULT_INPUT_VALUE.to_string(), value.0, &format_key);
+                writeln_redis_value_to_stdout(&DEFAULT_INPUT_VALUE.to_string(), value.1, &format_value);
+            }
+        }
+        Value::Attribute { data, attributes } => {
+            writeln_redis_value_to_stdout(&DEFAULT_INPUT_VALUE.to_string(), *data, &DEFAULT_OUTPUT_FORMAT.to_string());
+            for i in 0..attributes.len() {
+                let attribute = attributes.get(i).unwrap().clone();
+                let key = attribute.0;
+                let value = attribute.1;
+                let format_key = &String::from(format!("{}) 1) {{stdin}}", i));
+                let format_value = &String::from(format!(" 2) {{stdin}}"));
+                writeln_redis_value_to_stdout(&DEFAULT_INPUT_VALUE.to_string(), key, &format_key);
+                writeln_redis_value_to_stdout(&DEFAULT_INPUT_VALUE.to_string(), value, &format_value);
+            }
+        }
+        Value::Set(s) => {
+            for i in 0..s.len() {
+                let v = s.get(i).unwrap();
+                writeln_redis_value_to_stdout(&DEFAULT_INPUT_VALUE.to_string(), v.clone(), &String::from(format!("{}) {{stdin}}", i)));
+            }
+        }
+        Value::Double(d) => output(&DEFAULT_INPUT_VALUE.to_string(), format!("(double) {}", d), &DEFAULT_OUTPUT_FORMAT.to_string()),
+        Value::Boolean(b) => output(&DEFAULT_INPUT_VALUE.to_string(), format!("(bool) {}", b), &DEFAULT_OUTPUT_FORMAT.to_string()),
+        Value::VerbatimString { format: _format, text } => {
+            output(&DEFAULT_INPUT_VALUE.to_string(), text, &DEFAULT_STRING_OUTPUT_FORMAT.to_string());
+        }
+        Value::BigNumber(bn) => output(&DEFAULT_INPUT_VALUE.to_string(), format!("(bigNumber) {}", bn), &DEFAULT_OUTPUT_FORMAT.to_string()),
+        Value::Push { .. } => output(&DEFAULT_INPUT_VALUE.to_string(), "Pushed".to_string(), &DEFAULT_OUTPUT_FORMAT.to_string()),
+        Value::ServerError(e) => {
+            output(&DEFAULT_INPUT_VALUE.to_string(), format!("server error: {}", e), &DEFAULT_ERROR_OUTPUT_FORMAT.to_string());
+        }
+        _ => {
+            writeln_to_stderr("unsupported redis value type".to_string());
+        }
+    };
+}
+
+pub fn writeln_redis_value_to_stdout(input_value: &String, value: Value, output_format: &String) {
     match value {
         Value::Nil => writeln_to_stderr("Nil".to_string()),
         Value::Int(i) => output(input_value, format!("{}", i), output_format),

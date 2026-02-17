@@ -3,7 +3,7 @@ use crate::parameters::Connectable;
 use redis::Connection;
 use crate::io::writeln_to_stderr;
 
-pub fn connect(command: &dyn Connectable) -> Connection {
+pub fn connect(command: &dyn Connectable) -> (Connection, String, u16, u8) {
     if command.get_sentinel_addrs() != "" {
         connect_via_sentinel(command)
     } else {
@@ -11,7 +11,7 @@ pub fn connect(command: &dyn Connectable) -> Connection {
     }
 }
 
-fn direct_connect_to_node(command: &dyn Connectable) -> Connection {
+fn direct_connect_to_node(command: &dyn Connectable) -> (Connection, String, u16, u8) {
     connect_to_redis(
         command.get_user(),
         command.get_password(),
@@ -21,7 +21,7 @@ fn direct_connect_to_node(command: &dyn Connectable) -> Connection {
     )
 }
 
-fn connect_to_redis(user: String, password: String, host: String, port: u16, db: u8) -> Connection {
+fn connect_to_redis(user: String, password: String, host: String, port: u16, db: u8) -> (Connection, String, u16, u8) {
     let user_and_password = get_user_and_password_connection_string(user, password);
     let client = match redis::Client::open(format!(
         "redis://{}{}:{}/{}",
@@ -34,7 +34,9 @@ fn connect_to_redis(user: String, password: String, host: String, port: u16, db:
         },
     };
     match client.get_connection() {
-        Ok(c) => c,
+        Ok(c) => {
+            (c, host, port, db)
+        },
         Err(e) => {
             writeln_to_stderr(format!("Cannot connect to redis instance {}:{} -> {}", host, port, e.to_string()).to_string());
             exit(1);
@@ -57,7 +59,7 @@ fn get_user_and_password_connection_string(user: String, password: String) -> St
     user_and_password
 }
 
-fn connect_via_sentinel(command: &dyn Connectable) -> Connection {
+fn connect_via_sentinel(command: &dyn Connectable) -> (Connection, String, u16, u8) {
     for sentinel_addrs in command.get_sentinel_addrs().split(',') {
         let sentinel_host_and_port = sentinel_addrs.split_once(':').unwrap();
         let client = match redis::Client::open(format!(

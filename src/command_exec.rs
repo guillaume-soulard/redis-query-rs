@@ -34,6 +34,8 @@ fn execute(con: &mut Connection, command: Vec<&str>, exec_sub_command: &ExecSubC
         exec_sub_command.pipeline,
         con,
         exec_sub_command.output.clone(),
+        true,
+        false
     );
     pipeline_executor.execute(String::new(), cmd);
     pipeline_executor.flush();
@@ -50,6 +52,8 @@ fn execute_stdin(con: &mut Connection, command: Vec<&str>, exec_sub_command: &Ex
         exec_sub_command.pipeline,
         con,
         exec_sub_command.output.clone(),
+        true,
+        false
     );
     while continue_reading {
         let mut cmd = Vec::new();
