@@ -8,13 +8,15 @@ mod command_exec;
 mod command_env;
 mod pipeline_executor;
 mod command_connect;
+mod env;
 
 use crate::command_connect::shell;
 use crate::command_exec::exec_command;
 use crate::command_copy::migrate;
 use crate::command_scan::scan_command;
 use crate::connection::connect;
-use crate::command_env::{describe_env, list_env, load_env_parameters, remove_env, set_env};
+use crate::command_env::{describe_env, list_env, remove_env, set_env};
+use crate::env::load_env_parameters;
 use crate::parameters::{load_parameters, EnvSubCommand, RqParameters, RqSubCommand};
 
 fn main() {
