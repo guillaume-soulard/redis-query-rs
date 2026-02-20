@@ -35,7 +35,7 @@ fn execute(con: &mut Connection, command: Vec<&str>, exec_sub_command: &ExecSubC
         con,
         exec_sub_command.output.clone(),
         true,
-        false
+        false,
     );
     pipeline_executor.execute(String::new(), cmd);
     pipeline_executor.flush();
@@ -53,33 +53,34 @@ fn execute_stdin(con: &mut Connection, command: Vec<&str>, exec_sub_command: &Ex
         con,
         exec_sub_command.output.clone(),
         true,
-        false
+        false,
     );
     while continue_reading {
         let mut cmd = Vec::new();
-        cmd.push(command[0].to_string());
         let mut parameter_fetched = false;
         stdin_parameters.clear();
-        for &c in command.iter().skip(1) {
-            if c.contains(FIX_ARGUMENT_PLACE_HOLDER) {
-                if !parameter_fetched {
-                    stdin_parameters.clear();
-                    let i = read_stdin(&std_in, &mut stdin_parameters);
-                    stdin_parameters = stdin_parameters.replace("\n", "");
-                    if i == 0 {
-                        continue_reading = false;
+        for &c in command.iter() {
+            if c.contains(FIX_ARGUMENT_PLACE_HOLDER) || c.contains(ITERATOR_ARGUMENT_PLACE_HOLDER) {
+                let mut i = 0;
+                if c.contains(FIX_ARGUMENT_PLACE_HOLDER) {
+                    if !parameter_fetched {
+                        i = read_stdin(&std_in, &mut stdin_parameters);
                     }
-                    parameter_fetched = true;
+                } else if c.contains(ITERATOR_ARGUMENT_PLACE_HOLDER) {
+                    stdin_parameters.clear();
+                    i = read_stdin(&std_in, &mut stdin_parameters);
                 }
-                cmd.push(stdin_parameters.clone());
-            } else if c.contains(ITERATOR_ARGUMENT_PLACE_HOLDER) {
-                stdin_parameters.clear();
-                let i = read_stdin(&std_in, &mut stdin_parameters);
                 stdin_parameters = stdin_parameters.replace("\n", "");
+                let split = stdin_parameters.split_whitespace()
+                    .map(|s| s.to_string())
+                    .collect::<Vec<String>>();
+                for p in split.iter() {
+                    cmd.push(p.to_string());
+                }
                 if i == 0 {
                     continue_reading = false;
                 }
-                cmd.push(stdin_parameters.clone());
+                parameter_fetched = true;
             } else {
                 cmd.push(c.to_string());
             }
