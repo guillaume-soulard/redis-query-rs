@@ -1,0 +1,1 @@
+* Allow stdin separator (default is line separator)

@@ -3,6 +3,10 @@ name = "redis-query-rs"
 version = "0.1.0"
 edition = "2024"
 
+[[bin]]
+name = "rq"
+path = "src/main.rs"
+
 [profile.dev]
 opt-level = 0
 

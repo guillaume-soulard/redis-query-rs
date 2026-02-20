@@ -1,0 +1,127 @@
+= redis-query-rs
+:toc:
+:toclevels: 2
+:sectnums:
+
+== Project overview
+
+*redis-query-rs* is a small Rust command-line tool to query a Redis instance and print results in a convenient, script-friendly format.
+
+It’s designed to be:
+
+* **Fast to use**: one command to fetch a value or run a query-like operation.
+* **Easy to automate**: suitable for shell scripts and CI tasks.
+
+NOTE: The exact set of supported commands/options depends on the current implementation. The examples below illustrate typical usage patterns for a Redis-oriented CLI.
+
+== Installation
+
+=== Prerequisites
+
+* Rust toolchain (stable) with `cargo`
+* A running Redis server (local or remote)
+
+=== Build and install from source
+
+From the project root:
+
+[source,bash]
+----
+./build.sh
+----
+
+NOTE: It will install the `rq` binaray in `~/.cargo/bin`
+
+Verify:
+
+[source,bash]
+----
+rq --help
+----
+
+== Usage
+
+The `rq` tool provides several subcommands for interacting with Redis.
+
+=== Environment Management
+
+Define named environments to avoid repeating connection details (host, port, user, etc.).
+
+[source,bash]
+----
+# Save a new environment
+rq env set --name local -H localhost -p 6379
+
+# List all saved environments
+rq env list
+
+# Remove an environment
+rq env remove --name local
+
+# Describe an environment
+rq env describe --name local
+----
+
+=== Executing Commands
+
+Execute any Redis command against an environment or a specific host.
+
+[source,bash]
+----
+# Execute a simple command
+rq exec --env local --command "GET mykey"
+
+# Using placeholders with stdin
+echo "my_value" | rq exec --env local --command "SET mykey {?}"
+
+# You can insert data in redis easily from stdin
+echo "key1
+value1
+key2
+value2" | rq exec --env local --command "SET {?} {>}"
+----
+
+NOTE: The `{?}` read the current line in stdin. However `{>}` read the next line in stdin.
+
+=== Scanning Keys
+
+Iteratively scan a Redis instance for keys matching a pattern.
+
+[source,bash]
+----
+# Scan for the first 10 keys starting with 'user:'
+rq scan --env local --pattern "user:*" --limit 10
+----
+
+You can pipe scan and exec to do a more complex query
+[source,bash]
+----
+# Get the name of the first 10 users (assuming user's keys are hashes)
+rq scan --env local --pattern "user:*" --limit 10 | rq exec --env local -c "HGET {?} name"
+----
+
+=== Copying Keys
+
+Copy keys matching a pattern from one Redis environment to another.
+
+[source,bash]
+----
+# Copy user keys from 'staging' to 'local'
+rq copy --source-env staging --target-env local --source-pattern "user:*" --replace
+----
+
+=== Direct Connection
+
+Test a connection or connect using explicit parameters without a saved environment.
+
+[source,bash]
+----
+rq connect -H 10.0.0.1 -p 6380 -w mypassword
+----
+
+Or via an environment
+
+[source,bash]
+----
+rq connect -H 10.0.0.1 -p 6380 -w mypassword
+----
