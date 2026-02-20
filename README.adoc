@@ -75,10 +75,8 @@ rq exec --env local --command "GET mykey"
 echo "my_value" | rq exec --env local --command "SET mykey {?}"
 
 # You can insert data in redis easily from stdin
-echo "key1
-value1
-key2
-value2" | rq exec --env local --command "SET {?} {>}"
+echo "set key1 value1
+set key2 value2" | rq exec --env local --command "{?}"
 ----
 
 NOTE: The `{?}` read the current line in stdin. However `{>}` read the next line in stdin.
@@ -123,5 +121,5 @@ Or via an environment
 
 [source,bash]
 ----
-rq connect -H 10.0.0.1 -p 6380 -w mypassword
+rq connect -e prod
 ----
