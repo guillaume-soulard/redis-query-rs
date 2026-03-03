@@ -64,7 +64,7 @@ pub fn writeln_redis_value_to_stdout_for_cli(value: Value) {
 
 pub fn writeln_redis_value_to_stdout(input_value: &String, value: Value, output_format: &String) {
     match value {
-        Value::Nil => writeln_to_stderr("Nil".to_string()),
+        Value::Nil => writeln_to_stdout("Nil".to_string()),
         Value::Int(i) => output(input_value, format!("{}", i), output_format),
         Value::BulkString(s) => output(input_value, String::from_utf8(s).unwrap(), output_format),
         Value::Array(a) => {
