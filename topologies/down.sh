@@ -1,0 +1,1 @@
+docker compose -f topologies/docker-compose.yml down

@@ -1,0 +1,31 @@
+services:
+  redis-sentinel-master:
+    image: redis:latest
+    container_name: redis-sentinel-master
+    ports:
+      - "6383:6379"
+
+  redis-sentinel-replica:
+    image: redis:latest
+    container_name: redis-sentinel-replica
+    command: redis-server --replicaof redis-sentinel-master 6379
+    depends_on:
+      - redis-sentinel-master
+    ports:
+      - "6384:6379"
+
+  redis-sentinel-node:
+    image: redis:latest
+    container_name: redis-sentinel-node
+    command: >
+      bash -c "echo 'port 26379' > sentinel.conf &&
+               echo 'sentinel monitor mymaster redis-sentinel-master 6379 2' >> sentinel.conf &&
+               echo 'sentinel down-after-milliseconds mymaster 5000' >> sentinel.conf &&
+               echo 'sentinel failover-timeout mymaster 60000' >> sentinel.conf &&
+               echo 'sentinel parallel-syncs mymaster 1' >> sentinel.conf &&
+               redis-server sentinel.conf --sentinel"
+    depends_on:
+      - redis-sentinel-master
+      - redis-sentinel-replica
+    ports:
+      - "26380:26379"

@@ -1,0 +1,5 @@
+include:
+  - path: standalone/docker-compose.yml
+  - path: replica/docker-compose.yml
+  - path: sentinel/docker-compose.yml
+  - path: cluster/docker-compose.yml
