@@ -44,61 +44,12 @@ pub enum RqSubCommand {
 }
 
 pub trait Connectable {
-    fn get_host(&self) -> String;
-    fn set_host(&mut self, host: String);
-    fn get_port(&self) -> u16;
-    fn set_port(&mut self, port: u16);
-    fn get_db(&self) -> u8;
-    fn set_db(&mut self, db: u8);
-    fn get_user(&self) -> String;
-    fn set_user(&mut self, user: String);
-    fn get_password(&self) -> String;
-    fn set_password(&mut self, password: String);
-    fn get_sentinel_master(&self) -> String;
-    fn set_sentinel_master(&mut self, sentinel_master: String);
-    fn get_sentinel_addrs(&self) -> String;
-    fn set_sentinel_addrs(&mut self, sentinel_addrs: String);
+    fn get_instance(&self) -> String;
+    fn set_instance(&mut self, connection_string: String);
 }
 
 #[derive(Args, Debug)]
 pub struct ScanSubCommand {
-    #[arg(
-        conflicts_with_all(["sentinel_master","sentinel_addrs","env"]),
-        short = 'H',
-        long = "host",
-        required = false,
-        default_value = DEFAULT_HOST
-    )]
-    pub host: String,
-    #[arg(
-        conflicts_with_all(["sentinel_master","sentinel_addrs","env"]), short = 'p', long = "port", required = false, default_value = DEFAULT_PORT)]
-    pub port: u16,
-    #[arg(conflicts_with_all = ["env"],short = 'd', long = "db", required = false, default_value = DEFAULT_DB)]
-    pub db: u8,
-    #[arg(
-        conflicts_with_all = ["env"],
-        short = 'u',
-        long = "user",
-        required = false,
-        default_value = DEFAULT_USER
-    )]
-    pub user: String,
-    #[arg(conflicts_with_all = ["env"],short = 'w', long = "password", required = false, default_value = DEFAULT_PASSWORD)]
-    pub password: String,
-    #[arg(
-        conflicts_with_all = ["host","env"],
-        long = "sentinel-master",
-        required = false,
-        default_value = DEFAULT_SENTINEL_MASTER
-    )]
-    pub sentinel_master: String,
-    #[arg(
-        conflicts_with_all = ["host","env"],
-        long = "sentinel-addrs",
-        required = false,
-        default_value = DEFAULT_SENTINEL_ADDRS
-    )]
-    pub sentinel_addrs: String,
     #[arg(long = "pattern", required = true)]
     pub pattern: String,
     #[arg(short = 'c', long = "count", required = false, default_value = "10")]
@@ -118,86 +69,26 @@ pub struct ScanSubCommand {
         default_value = ""
     )]
     pub env: String,
+    #[arg(
+        short = 'i',
+        long = "instance",
+        required = false,
+        default_value = ""
+    )]
+    pub instance: String,
 }
 
 impl Connectable for ScanSubCommand {
-    fn get_host(&self) -> String {
-        self.host.clone()
+    fn get_instance(&self) -> String {
+        self.instance.clone()
     }
-    fn set_host(&mut self, host: String) {
-        self.host = host;
-    }
-    fn get_port(&self) -> u16 {
-        self.port.clone()
-    }
-    fn set_port(&mut self, port: u16) {
-        self.port = port;
-    }
-    fn get_db(&self) -> u8 {
-        self.db.clone()
-    }
-    fn set_db(&mut self, db: u8) {
-        self.db = db;
-    }
-    fn get_user(&self) -> String {
-        self.user.clone()
-    }
-    fn set_user(&mut self, user: String) {
-        self.user = user;
-    }
-    fn get_password(&self) -> String {
-        self.password.clone()
-    }
-    fn set_password(&mut self, password: String) {
-        self.password = password;
-    }
-    fn get_sentinel_master(&self) -> String {
-        self.sentinel_master.clone()
-    }
-    fn set_sentinel_master(&mut self, sentinel_master: String) {
-        self.sentinel_master = sentinel_master;
-    }
-    fn get_sentinel_addrs(&self) -> String {
-        self.sentinel_addrs.clone()
-    }
-    fn set_sentinel_addrs(&mut self, sentinel_addrs: String) {
-        self.sentinel_addrs = sentinel_addrs;
+    fn set_instance(&mut self, connection_string: String) {
+        self.instance = connection_string;
     }
 }
 
 #[derive(Args, Debug)]
 pub struct ExecSubCommand {
-    #[arg(
-        conflicts_with_all(["sentinel_master","sentinel_addrs","env"]),
-        short = 'H',
-        long = "host",
-        required = false,
-        default_value = DEFAULT_HOST
-    )]
-    pub host: String,
-    #[arg(conflicts_with_all(["sentinel_master","sentinel_addrs","env"]), short = 'p', long = "port", required = false, default_value = DEFAULT_PORT)]
-    pub port: u16,
-    #[arg(conflicts_with_all = ["env"],short = 'd', long = "db", required = false, default_value = DEFAULT_DB)]
-    pub db: u8,
-    #[arg(
-        conflicts_with_all = ["env"],
-        short = 'u',
-        long = "user",
-        required = false,
-        default_value = DEFAULT_USER
-    )]
-    pub user: String,
-    #[arg(conflicts_with_all = ["env"],short = 'w', long = "password", required = false, default_value = DEFAULT_PASSWORD)]
-    pub password: String,
-    #[arg(conflicts_with_all = ["host","env"],long = "sentinel-master", required = false, default_value = DEFAULT_SENTINEL_MASTER)]
-    pub sentinel_master: String,
-    #[arg(
-        conflicts_with_all = ["host","env"],
-        long = "sentinel-addrs",
-        required = false,
-        default_value = DEFAULT_SENTINEL_ADDRS
-    )]
-    pub sentinel_addrs: String,
     /// The command to execute. Can use spacial placeholders as parameters : {?} for current stdin value and {>} for next stdin value.
     #[arg(short = 'c', long = "command", required = true)]
     pub command: String,
@@ -220,63 +111,21 @@ pub struct ExecSubCommand {
     /// The number of commands to execute in one redis pipeline.
     #[arg(short = 'P', long = "pipeline", required = false, default_value = "1")]
     pub pipeline: usize,
+    #[arg(
+        short = 'i',
+        long = "instance",
+        required = false,
+        default_value = ""
+    )]
+    pub instance: String,
 }
 
 impl Connectable for ExecSubCommand {
-    fn get_host(&self) -> String {
-        self.host.clone()
+    fn get_instance(&self) -> String {
+        self.instance.clone()
     }
-
-    fn set_host(&mut self, host: String) {
-        self.host = host;
-    }
-
-    fn get_port(&self) -> u16 {
-        self.port.clone()
-    }
-
-    fn set_port(&mut self, port: u16) {
-        self.port = port;
-    }
-
-    fn get_db(&self) -> u8 {
-        self.db.clone()
-    }
-
-    fn set_db(&mut self, db: u8) {
-        self.db = db;
-    }
-
-    fn get_user(&self) -> String {
-        self.user.clone()
-    }
-
-    fn set_user(&mut self, user: String) {
-        self.user = user;
-    }
-
-    fn get_password(&self) -> String {
-        self.password.clone()
-    }
-
-    fn set_password(&mut self, password: String) {
-        self.password = password;
-    }
-
-    fn get_sentinel_master(&self) -> String {
-        self.sentinel_master.clone()
-    }
-
-    fn set_sentinel_master(&mut self, sentinel_master: String) {
-        self.sentinel_master = sentinel_master;
-    }
-
-    fn get_sentinel_addrs(&self) -> String {
-        self.sentinel_addrs.clone()
-    }
-
-    fn set_sentinel_addrs(&mut self, sentinel_addrs: String) {
-        self.sentinel_addrs = sentinel_addrs;
+    fn set_instance(&mut self, connection_string: String) {
+        self.instance = connection_string;
     }
 }
 
@@ -293,35 +142,12 @@ pub struct SetEnvSubCommand {
     #[arg(short = 'n', long = "name", required = true)]
     pub name: String,
     #[arg(
-        conflicts_with_all(["sentinel_master","sentinel_addrs"]),
-        short = 'H',
-        long = "host",
+        short = 'i',
+        long = "instance",
         required = false,
         default_value = ""
     )]
-    pub host: String,
-    #[arg(conflicts_with_all(["sentinel_master","sentinel_addrs"]), short = 'p', long = "port", required = false, default_value = DEFAULT_PORT)]
-    pub port: u16,
-    #[arg(short = 'd', long = "db", required = false, default_value = DEFAULT_DB)]
-    pub db: u8,
-    #[arg(
-        short = 'u',
-        long = "user",
-        required = false,
-        default_value = ""
-    )]
-    pub user: String,
-    #[arg(short = 'w', long = "password", required = false, default_value = "")]
-    pub password: String,
-    #[arg(conflicts_with = "host",long = "sentinel-master", required = false, default_value = "")]
-    pub sentinel_master: String,
-    #[arg(
-        conflicts_with = "host",
-        long = "sentinel-addrs",
-        required = false,
-        default_value = ""
-    )]
-    pub sentinel_addrs: String,
+    pub instance: String,
 }
 
 #[derive(Args, Debug)]
@@ -341,20 +167,6 @@ pub struct DescribeEnvSubCommand {
 
 #[derive(Args, Debug)]
 pub struct MigrateSubCommand {
-    #[arg(skip)]
-    pub host: String,
-    #[arg(skip)]
-    pub port: u16,
-    #[arg(skip)]
-    pub db: u8,
-    #[arg(skip)]
-    pub user: String,
-    #[arg(skip)]
-    pub password: String,
-    #[arg(skip)]
-    pub sentinel_master: String,
-    #[arg(skip)]
-    pub sentinel_addrs: String,
     #[arg(short = 's', long = "source-env", required = true)]
     pub source_env: String,
     #[arg(short = 't', long = "target-env", required = true)]
@@ -379,99 +191,21 @@ pub struct MigrateSubCommand {
     pub ttl: i64,
     #[arg(long = "source-pattern", required = true)]
     pub source_pattern: String,
+    #[arg(skip)]
+    pub instance: String,
 }
 
 impl Connectable for MigrateSubCommand {
-    fn get_host(&self) -> String {
-        self.host.clone()
+    fn get_instance(&self) -> String {
+        self.instance.clone()
     }
-
-    fn set_host(&mut self, host: String) {
-        self.host = host;
-    }
-
-    fn get_port(&self) -> u16 {
-        self.port.clone()
-    }
-
-    fn set_port(&mut self, port: u16) {
-        self.port = port;
-    }
-
-    fn get_db(&self) -> u8 {
-        self.db.clone()
-    }
-
-    fn set_db(&mut self, db: u8) {
-        self.db = db;
-    }
-
-    fn get_user(&self) -> String {
-        self.user.clone()
-    }
-
-    fn set_user(&mut self, user: String) {
-        self.user = user;
-    }
-
-    fn get_password(&self) -> String {
-        self.password.clone()
-    }
-
-    fn set_password(&mut self, password: String) {
-        self.password = password;
-    }
-
-    fn get_sentinel_master(&self) -> String {
-        self.sentinel_master.clone()
-    }
-
-    fn set_sentinel_master(&mut self, sentinel_master: String) {
-        self.sentinel_master = sentinel_master;
-    }
-
-    fn get_sentinel_addrs(&self) -> String {
-        self.sentinel_addrs.clone()
-    }
-
-    fn set_sentinel_addrs(&mut self, sentinel_addrs: String) {
-        self.sentinel_addrs = sentinel_addrs;
+    fn set_instance(&mut self, connection_string: String) {
+        self.instance = connection_string;
     }
 }
 
 #[derive(Args, Debug)]
 pub struct ConnectSubCommand {
-    #[arg(
-        conflicts_with_all(["sentinel_master","sentinel_addrs","env"]),
-        short = 'H',
-        long = "host",
-        required = false,
-        default_value = DEFAULT_HOST
-    )]
-    pub host: String,
-    #[arg(conflicts_with_all(["sentinel_master","sentinel_addrs","env"]), short = 'p', long = "port", required = false, default_value = DEFAULT_PORT)]
-    pub port: u16,
-    #[arg(conflicts_with_all = ["env"],short = 'd', long = "db", required = false, default_value = DEFAULT_DB)]
-    pub db: u8,
-    #[arg(
-        conflicts_with_all = ["env"],
-        short = 'u',
-        long = "user",
-        required = false,
-        default_value = DEFAULT_USER
-    )]
-    pub user: String,
-    #[arg(conflicts_with_all = ["env"],short = 'w', long = "password", required = false, default_value = DEFAULT_PASSWORD)]
-    pub password: String,
-    #[arg(conflicts_with_all = ["host","env"],long = "sentinel-master", required = false, default_value = DEFAULT_SENTINEL_MASTER)]
-    pub sentinel_master: String,
-    #[arg(
-        conflicts_with_all = ["host","env"],
-        long = "sentinel-addrs",
-        required = false,
-        default_value = DEFAULT_SENTINEL_ADDRS
-    )]
-    pub sentinel_addrs: String,
     #[arg(
         conflicts_with_all = ["host","port","db","user","password","sentinel_addrs","sentinel_master"],
         short = 'e',
@@ -480,62 +214,20 @@ pub struct ConnectSubCommand {
         default_value = ""
     )]
     pub env: String,
+    #[arg(
+        short = 'i',
+        long = "instance",
+        required = false,
+        default_value = ""
+    )]
+    pub instance: String,
 }
 
 impl Connectable for ConnectSubCommand {
-    fn get_host(&self) -> String {
-        self.host.clone()
+    fn get_instance(&self) -> String {
+        self.instance.clone()
     }
-
-    fn set_host(&mut self, host: String) {
-        self.host = host;
-    }
-
-    fn get_port(&self) -> u16 {
-        self.port.clone()
-    }
-
-    fn set_port(&mut self, port: u16) {
-        self.port = port;
-    }
-
-    fn get_db(&self) -> u8 {
-        self.db.clone()
-    }
-
-    fn set_db(&mut self, db: u8) {
-        self.db = db;
-    }
-
-    fn get_user(&self) -> String {
-        self.user.clone()
-    }
-
-    fn set_user(&mut self, user: String) {
-        self.user = user;
-    }
-
-    fn get_password(&self) -> String {
-        self.password.clone()
-    }
-
-    fn set_password(&mut self, password: String) {
-        self.password = password;
-    }
-
-    fn get_sentinel_master(&self) -> String {
-        self.sentinel_master.clone()
-    }
-
-    fn set_sentinel_master(&mut self, sentinel_master: String) {
-        self.sentinel_master = sentinel_master;
-    }
-
-    fn get_sentinel_addrs(&self) -> String {
-        self.sentinel_addrs.clone()
-    }
-
-    fn set_sentinel_addrs(&mut self, sentinel_addrs: String) {
-        self.sentinel_addrs = sentinel_addrs;
+    fn set_instance(&mut self, connection_string: String) {
+        self.instance = connection_string;
     }
 }

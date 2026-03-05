@@ -1,6 +1,7 @@
 use std::process::exit;
 use crate::parameters::Connectable;
 use redis::Connection;
+use regex::Regex;
 use crate::io::writeln_to_stderr;
 
 pub fn connect(command: &dyn Connectable) -> (Connection, String, u16, u8) {
@@ -8,6 +9,36 @@ pub fn connect(command: &dyn Connectable) -> (Connection, String, u16, u8) {
         connect_via_sentinel(command)
     } else {
         direct_connect_to_node(command)
+    }
+}
+
+enum RedisConnectionKind {
+    STANDALONE,
+    SENTINEL,
+    REPLICAS,
+    CLUSTER
+}
+
+fn get_redis_connection(command: &dyn Connectable) -> RedisConnectionKind {
+    let regex = Regex::new("(?<connectionType>redis):\\/\\/(?:(?<userName>[^:]*)?(?::(?<password>[^@]*)?@))?(?<host>[^:]*)(?::(?<port>[1-9][0-9]*))?(?:\\/(?<db>[0-9]*))?(?:\\?protocol=(?<protocol>resp(?:[23])))?").unwrap();
+    match regex.captures(command.get_instance().as_str()) {
+        Some(captures) => {
+            let connection_type = &captures["connectionType"];
+            match connection_type {
+                "redis" => RedisConnectionKind::STANDALONE,
+                "sentinel" => RedisConnectionKind::SENTINEL,
+                "cluster" => RedisConnectionKind::CLUSTER,
+                "replica" => RedisConnectionKind::REPLICAS,
+                _ => {
+                    writeln_to_stderr(format!("Unsupported connection type {}", connection_type).to_string());
+                    exit(1);
+                }
+            }
+        },
+        None => {
+            writeln_to_stderr("unable to parse instance string".to_string());
+            exit(1);
+        }
     }
 }
 
