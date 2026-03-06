@@ -25,12 +25,10 @@ pub fn connect(connection_infos: &RedisConnectionInfos) -> RedisConnection {
         RedisConnectionKind::STANDALONE => standalone_connect(&connection_infos),
         RedisConnectionKind::SENTINEL => sentinel_connect(&connection_infos),
         RedisConnectionKind::REPLICAS => {
-            writeln_to_stderr("Replica connection not supported yet".to_string());
-            exit(1);
+            // TODO
         }
         RedisConnectionKind::CLUSTER => {
-            writeln_to_stderr("Cluster connection not supported yet".to_string());
-            exit(1);
+            // TODO
         }
     }
 }
@@ -94,7 +92,6 @@ fn standalone_connect(connection_infos: &RedisConnectionInfos) -> RedisConnectio
     connect_to_instance(connection_infos)
 }
 
-// TODO use direct connection string ?
 fn connect_to_instance(connection_infos: &RedisConnectionInfos) -> RedisConnection {
     let user_and_password = get_user_and_password_connection_string(connection_infos);
     let host = connection_infos
