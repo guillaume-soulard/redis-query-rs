@@ -2,14 +2,6 @@ use crate::io::writeln_to_stderr;
 use clap::{Args, Parser, Subcommand};
 use std::process::exit;
 
-pub const DEFAULT_HOST:&str = "localhost";
-pub const DEFAULT_PORT:&str = "6379";
-pub const DEFAULT_DB:&str = "0";
-pub const DEFAULT_USER:&str = "default";
-pub const DEFAULT_PASSWORD:&str = "";
-pub const DEFAULT_SENTINEL_ADDRS:&str = "";
-pub const DEFAULT_SENTINEL_MASTER:&str = "";
-
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 pub struct RqParameters {
@@ -43,11 +35,6 @@ pub enum RqSubCommand {
     Connect(ConnectSubCommand),
 }
 
-pub trait Connectable {
-    fn get_instance(&self) -> String;
-    fn set_instance(&mut self, connection_string: String);
-}
-
 #[derive(Args, Debug)]
 pub struct ScanSubCommand {
     #[arg(long = "pattern", required = true)]
@@ -75,16 +62,7 @@ pub struct ScanSubCommand {
         required = false,
         default_value = ""
     )]
-    pub instance: String,
-}
-
-impl Connectable for ScanSubCommand {
-    fn get_instance(&self) -> String {
-        self.instance.clone()
-    }
-    fn set_instance(&mut self, connection_string: String) {
-        self.instance = connection_string;
-    }
+    pub connection_string: String,
 }
 
 #[derive(Args, Debug)]
@@ -117,16 +95,7 @@ pub struct ExecSubCommand {
         required = false,
         default_value = ""
     )]
-    pub instance: String,
-}
-
-impl Connectable for ExecSubCommand {
-    fn get_instance(&self) -> String {
-        self.instance.clone()
-    }
-    fn set_instance(&mut self, connection_string: String) {
-        self.instance = connection_string;
-    }
+    pub connection_string: String,
 }
 
 #[derive(Subcommand, Debug)]
@@ -147,7 +116,7 @@ pub struct SetEnvSubCommand {
         required = false,
         default_value = ""
     )]
-    pub instance: String,
+    pub connection_string: String,
 }
 
 #[derive(Args, Debug)]
@@ -191,17 +160,6 @@ pub struct MigrateSubCommand {
     pub ttl: i64,
     #[arg(long = "source-pattern", required = true)]
     pub source_pattern: String,
-    #[arg(skip)]
-    pub instance: String,
-}
-
-impl Connectable for MigrateSubCommand {
-    fn get_instance(&self) -> String {
-        self.instance.clone()
-    }
-    fn set_instance(&mut self, connection_string: String) {
-        self.instance = connection_string;
-    }
 }
 
 #[derive(Args, Debug)]
@@ -220,14 +178,5 @@ pub struct ConnectSubCommand {
         required = false,
         default_value = ""
     )]
-    pub instance: String,
-}
-
-impl Connectable for ConnectSubCommand {
-    fn get_instance(&self) -> String {
-        self.instance.clone()
-    }
-    fn set_instance(&mut self, connection_string: String) {
-        self.instance = connection_string;
-    }
+    pub connection_string: String,
 }

@@ -1,60 +1,36 @@
+use crate::connection::{get_redis_connection_infos, RedisConnectionInfos};
+use crate::io::{writeln_to_stderr, writeln_to_stdout};
 use std::env::home_dir;
 use std::fs::{create_dir, File};
 use std::io::Read;
 use std::path::PathBuf;
 use std::process::exit;
-use crate::io::{writeln_to_stderr, writeln_to_stdout};
-use crate::parameters::{Connectable, DEFAULT_SENTINEL_ADDRS, DEFAULT_SENTINEL_MASTER};
 
 #[derive(serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct Environment {
     #[serde(skip)]
     pub name: String,
-    pub host: String,
-    pub db: u8,
-    pub port: u16,
-    pub sentinel_master: String,
-    pub user: String,
-    pub password: String,
-    pub sentinel_addrs: String,
+    pub connection_string: String,
 }
 
 impl Environment {
     pub fn describe(&self) {
         writeln_to_stdout(format!("Environment: {}", self.name));
-        writeln_to_stdout(format!("Host: {}", self.host));
-        writeln_to_stdout(format!("port: {}", self.port));
-        writeln_to_stdout(format!("db: {}", self.db));
-        writeln_to_stdout(format!("user: {}", self.user));
-        writeln_to_stdout(format!("password: {}", self.password));
-        writeln_to_stdout(format!("sentinel_addrs: {}", self.sentinel_addrs));
-        writeln_to_stdout(format!("sentinel_master: {}", self.sentinel_master));
+        writeln_to_stdout(format!("Connection string: {}", self.connection_string));
     }
 }
 
-pub fn load_env_parameters(env_name: String, cmd: &mut dyn Connectable) {
+pub fn load_env_parameters_or_from_connection_string(env_name: String, connection_string: &String) -> RedisConnectionInfos {
     if env_name == "" {
-        return;
+        if connection_string == "" {
+            writeln_to_stderr("No connection string specified".to_string());
+            exit(1);
+        }
+        return get_redis_connection_infos(&connection_string);
     }
     let env = load_env(env_name);
-    cmd.set_host(env.host);
-    cmd.set_db(env.db);
-    cmd.set_port(env.port);
-    cmd.set_user(env.user);
-    cmd.set_password(env.password);
-    if cmd.get_sentinel_master() == DEFAULT_SENTINEL_MASTER
-        || env.sentinel_master != ""
-        || env.sentinel_master != DEFAULT_SENTINEL_MASTER
-    {
-        cmd.set_sentinel_master(env.sentinel_master);
-    }
-    if cmd.get_sentinel_addrs() == DEFAULT_SENTINEL_ADDRS
-        || env.sentinel_addrs != ""
-        || env.sentinel_addrs != DEFAULT_SENTINEL_ADDRS
-    {
-        cmd.set_sentinel_addrs(env.sentinel_addrs);
-    }
+    get_redis_connection_infos(&env.connection_string)
 }
 
 pub fn load_env(env_name: String) -> Environment {
