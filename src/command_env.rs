@@ -30,13 +30,7 @@ pub fn set_env(set_env_command: SetEnvSubCommand) {
     };
     let env = Environment {
         name: env_name.clone(),
-        host: set_env_command.host,
-        db: set_env_command.db,
-        port: set_env_command.port,
-        sentinel_master: set_env_command.sentinel_master,
-        user: set_env_command.user,
-        password: set_env_command.password,
-        sentinel_addrs: set_env_command.sentinel_addrs,
+        connection_string: set_env_command.connection_string.clone(),
     };
     let json = match serde_json::to_string_pretty(&env) {
         Ok(json) => json,
