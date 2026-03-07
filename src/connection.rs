@@ -1,5 +1,5 @@
 use crate::io::writeln_to_stderr;
-use redis::Connection;
+use redis::{Connection, Value};
 use regex::Regex;
 use std::process::exit;
 
@@ -24,12 +24,8 @@ pub fn connect(connection_infos: &RedisConnectionInfos) -> RedisConnection {
     match connection_infos.kind {
         RedisConnectionKind::STANDALONE => standalone_connect(&connection_infos),
         RedisConnectionKind::SENTINEL => sentinel_connect(&connection_infos),
-        RedisConnectionKind::REPLICAS => {
-            // TODO
-        }
-        RedisConnectionKind::CLUSTER => {
-            // TODO
-        }
+        RedisConnectionKind::REPLICAS => replicas_connect(&connection_infos),
+        RedisConnectionKind::CLUSTER => standalone_connect(&connection_infos),
     }
 }
 
@@ -90,6 +86,63 @@ pub fn get_redis_connection_infos(connection_string: &String) -> RedisConnection
 
 fn standalone_connect(connection_infos: &RedisConnectionInfos) -> RedisConnection {
     connect_to_instance(connection_infos)
+}
+
+fn replicas_connect(connection_infos: &RedisConnectionInfos) -> RedisConnection {
+    let con = connect_to_instance(connection_infos);
+    let mut connection = con.connection;
+    let role_response = match redis::cmd("ROLE").query::<Value>(&mut connection) {
+        Ok(Value::Array(v))  => v,
+        Ok(v) => {
+            writeln_to_stderr(format!("Unexpected value type returned by ROLE : {:?}", v));
+            exit(1);
+        }
+        Err(e) => {
+            writeln_to_stderr(format!("Cannot get role of instance {}:{} : {}", con.host, con.port, e).to_string());
+            exit(1);
+        }
+    };
+    let role = match role_response[0] {
+        Value::SimpleString(v) => v,
+        _ => {
+            writeln_to_stderr(format!("Unexpected value type returned by ROLE : {:?}", role_response[0]).to_string());
+            exit(1);
+        }
+    };
+    match role.as_str() {
+        "master" => {
+            RedisConnection {
+                connection,
+                host: con.host,
+                port: con.port,
+                db: con.db,
+            }
+        }
+        "slave" => {
+            let master_address = match role_response[1] {
+                Value::SimpleString(v) => v,
+                _ => {
+                    writeln_to_stderr(format!("Unexpected value type returned by ROLE : {:?}", role_response[1]).to_string());
+                    exit(1);
+                }
+            };
+            let master_port:u16 = match role_response[2] {
+                Value::Int(v) => v as u16,
+                _ => {
+                    writeln_to_stderr(format!("Unexpected value type returned by ROLE : {:?}", master_address[0]).to_string());
+                    exit(1);
+                }
+            };
+            return RedisConnection{
+                host: master_address[0].to_string(),
+                port: master_port,
+                db: con.db,
+            }
+        }
+        _ => {
+            writeln_to_stderr(format!("Instance {}:{} has an unsupported role: {}", con.host, con.port, role));
+        }
+    }
 }
 
 fn connect_to_instance(connection_infos: &RedisConnectionInfos) -> RedisConnection {
