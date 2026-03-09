@@ -66,7 +66,7 @@ pub fn writeln_redis_value_to_stdout(input_value: &String, value: Value, output_
     match value {
         Value::Nil => writeln_to_stdout("Nil".to_string()),
         Value::Int(i) => output(input_value, format!("{}", i), output_format),
-        Value::BulkString(s) => output(input_value, String::from_utf8(s).unwrap(), output_format),
+        Value::BulkString(s) => output(input_value, String::from_utf8_lossy(s.as_slice()).to_string(), output_format),
         Value::Array(a) => {
             for v in a {
                 writeln_redis_value_to_stdout(input_value, v, output_format);
