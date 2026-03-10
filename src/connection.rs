@@ -102,10 +102,11 @@ fn replicas_connect(connection_infos: &RedisConnectionInfos) -> RedisConnection 
             exit(1);
         }
     };
-    let role = match role_response[0] {
+    let value = role_response[0];
+    let role = match value {
         Value::SimpleString(v) => v,
         _ => {
-            writeln_to_stderr(format!("Unexpected value type returned by ROLE : {:?}", role_response[0]).to_string());
+            writeln_to_stderr(format!("Unexpected value type returned by ROLE : {:?}", value).to_string());
             exit(1);
         }
     };
@@ -128,19 +129,31 @@ fn replicas_connect(connection_infos: &RedisConnectionInfos) -> RedisConnection 
             };
             let master_port:u16 = match role_response[2] {
                 Value::Int(v) => v as u16,
-                _ => {
-                    writeln_to_stderr(format!("Unexpected value type returned by ROLE : {:?}", master_address[0]).to_string());
+                v => {
+                    writeln_to_stderr(format!("Unexpected value type returned by ROLE : {:?}", v).to_string());
                     exit(1);
                 }
             };
-            return RedisConnection{
-                host: master_address[0].to_string(),
+            let master_connection = connect_to_instance(&RedisConnectionInfos{
+                kind: RedisConnectionKind::STANDALONE,
+                host: Some(master_address.clone()),
+                port: Some(master_port),
+                db: connection_infos.db,
+                password: connection_infos.password.clone(),
+                user: connection_infos.user.clone(),
+                protocol: connection_infos.protocol.clone(),
+                sentinel_master: connection_infos.sentinel_master.clone(),
+            });
+            RedisConnection{
+                connection: master_connection.connection,
+                host: master_address,
                 port: master_port,
-                db: con.db,
+                db: connection_infos.db.unwrap_or(DEFAULT_DB),
             }
         }
         _ => {
             writeln_to_stderr(format!("Instance {}:{} has an unsupported role: {}", con.host, con.port, role));
+            exit(1);
         }
     }
 }
