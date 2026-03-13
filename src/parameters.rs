@@ -49,7 +49,7 @@ pub struct ScanSubCommand {
     )]
     pub limit: usize,
     #[arg(
-        conflicts_with_all = ["host","port","db","user","password","sentinel_addrs","sentinel_master"],
+        conflicts_with_all = ["connection_string"],
         short = 'e',
         long = "env",
         required = false,
@@ -57,10 +57,12 @@ pub struct ScanSubCommand {
     )]
     pub env: String,
     #[arg(
-        short = 'i',
-        long = "instance",
+        conflicts_with_all = ["env"],
+        short = 'x',
+        long = "connection-string",
         required = false,
-        default_value = ""
+        default_value = "",
+        help = "format : (redis|sentinel|cluster|replica)://[<username>][:<password>@]<hostname>[:port][/[<db>][?protocol=<protocol>][&sentinelMasterName=<sentinelMasterName>]]"
     )]
     pub connection_string: String,
 }
@@ -71,7 +73,7 @@ pub struct ExecSubCommand {
     #[arg(short = 'c', long = "command", required = true)]
     pub command: String,
     #[arg(
-        conflicts_with_all = ["host","port","db","user","password","sentinel_addrs","sentinel_master"],
+        conflicts_with_all = ["connection_string"],
         short = 'e',
         long = "env",
         required = false,
@@ -90,10 +92,12 @@ pub struct ExecSubCommand {
     #[arg(short = 'P', long = "pipeline", required = false, default_value = "1")]
     pub pipeline: usize,
     #[arg(
-        short = 'i',
-        long = "instance",
+        conflicts_with_all = ["env"],
+        short = 'x',
+        long = "connection-string",
         required = false,
-        default_value = ""
+        default_value = "",
+        help = "format : (redis|sentinel|cluster|replica)://[<username>][:<password>@]<hostname>[:port][/[<db>][?protocol=<protocol>][&sentinelMasterName=<sentinelMasterName>]]"
     )]
     pub connection_string: String,
 }
@@ -165,7 +169,7 @@ pub struct MigrateSubCommand {
 #[derive(Args, Debug)]
 pub struct ConnectSubCommand {
     #[arg(
-        conflicts_with_all = ["host","port","db","user","password","sentinel_addrs","sentinel_master"],
+        conflicts_with_all = ["connection_string"],
         short = 'e',
         long = "env",
         required = false,
@@ -173,10 +177,12 @@ pub struct ConnectSubCommand {
     )]
     pub env: String,
     #[arg(
-        short = 'i',
-        long = "instance",
+        conflicts_with_all = ["env"],
+        short = 'x',
+        long = "connection-string",
         required = false,
-        default_value = ""
+        default_value = "",
+        help = "format : (redis|sentinel|cluster|replica)://[<username>][:<password>@]<hostname>[:port][/[<db>][?protocol=<protocol>][&sentinelMasterName=<sentinelMasterName>]]"
     )]
     pub connection_string: String,
 }

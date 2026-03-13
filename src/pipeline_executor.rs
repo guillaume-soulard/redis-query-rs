@@ -1,5 +1,5 @@
 use crate::io::{writeln_redis_value_to_stdout, writeln_redis_value_to_stdout_for_cli, writeln_to_stdout};
-use redis::{Connection, Value};
+use redis::{Connection, ErrorKind, ServerErrorKind, Value};
 use std::collections::LinkedList;
 use std::process::exit;
 
@@ -41,7 +41,19 @@ impl<'a> PipelineExecutor<'a> {
                     }
                 },
                 Err(e) => {
-                    writeln_to_stdout(format!("{}", e.to_string()));
+                    match e.kind() {
+                        ErrorKind::Server(ServerErrorKind::Moved) => {
+                            todo
+                            writeln_to_stdout("moved".to_string());
+                        }
+                        ErrorKind::Server(ServerErrorKind::Ask) => {
+                            todo
+                            writeln_to_stdout("ask".to_string());
+                        }
+                        _ => {
+                            writeln_to_stdout(format!("{}", e.to_string()));
+                        }
+                    }
                 }
             };
         } else {

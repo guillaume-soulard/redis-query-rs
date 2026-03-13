@@ -48,7 +48,7 @@ pub struct RedisConnectionInfos {
 }
 
 pub fn get_redis_connection_infos(connection_string: &String) -> RedisConnectionInfos {
-    let regex = Regex::new("(?<connectionType>redis):\\/\\/(?:(?<userName>[^:]*)?(?::(?<password>[^@]*)?@))?(?<host>[^:]*)(?::(?<port>[1-9][0-9]*))?(?:\\/(?<db>[0-9]*))?(?:\\?(?:protocol=(?<protocol>resp(?:[23])))|(?:sentinelMaster=(?<sentinelMasterName>))|&)?").unwrap();
+    let regex = Regex::new("(?<connectionType>(redis|cluster|replica|sentinel))://(?:(?<userName>[^:]*)?(?::(?<password>[^@]*)?@))?(?<host>[^:]*)(?::(?<port>[1-9][0-9]*))?(?:/(?<db>[0-9]*))?(?:\\?(?:protocol=(?<protocol>resp(?:[23])))|(?:sentinelMaster=(?<sentinelMasterName>))|&)?").unwrap();
     match regex.captures(connection_string.as_str()) {
         Some(captures) => {
             let connection_type = &captures["connectionType"];
@@ -102,11 +102,11 @@ fn replicas_connect(connection_infos: &RedisConnectionInfos) -> RedisConnection 
             exit(1);
         }
     };
-    let value = role_response[0];
-    let role = match value {
+    let role_value = role_response[0].clone();
+    let role = match role_value {
         Value::SimpleString(v) => v,
         _ => {
-            writeln_to_stderr(format!("Unexpected value type returned by ROLE : {:?}", value).to_string());
+            writeln_to_stderr(format!("Unexpected value type returned by ROLE : {:?}", role_value).to_string());
             exit(1);
         }
     };
@@ -120,14 +120,14 @@ fn replicas_connect(connection_infos: &RedisConnectionInfos) -> RedisConnection 
             }
         }
         "slave" => {
-            let master_address = match role_response[1] {
+            let master_address = match role_response[1].clone() {
                 Value::SimpleString(v) => v,
                 _ => {
                     writeln_to_stderr(format!("Unexpected value type returned by ROLE : {:?}", role_response[1]).to_string());
                     exit(1);
                 }
             };
-            let master_port:u16 = match role_response[2] {
+            let master_port:u16 = match role_response[2].clone() {
                 Value::Int(v) => v as u16,
                 v => {
                     writeln_to_stderr(format!("Unexpected value type returned by ROLE : {:?}", v).to_string());
